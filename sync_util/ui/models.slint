@@ -1,0 +1,20 @@
+// Strutture scambiate con Rust.
+
+// kind: 0 info, 1 dettaglio, 2 sezione, 3 successo, 4 avviso, 5 errore
+// mark: 0 nessuna occorrenza, 1 occorrenza della ricerca, 2 occorrenza corrente
+export struct LogRow {
+    time: string,
+    kind: int,
+    text: string,
+    mark: int,
+}
+
+// Riga visibile dell'alberatura dei file elaborati.
+export struct TreeRow {
+    depth: int,
+    name: string,
+    directory: bool,
+    expanded: bool,
+    expandable: bool,
+    detail: string,
+}

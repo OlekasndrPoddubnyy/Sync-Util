@@ -1,0 +1,62 @@
+// Palette chiara/scura e misure comuni.
+//
+// Indaco come colore principale (sorgente, pulsante principale, selezioni), ciano per la destinazione,
+// neutri freddi leggermente bluastri. Il tema scuro è profondo, con superfici che salgono di tono
+// (sfondo → card → bordi) invece del grigio piatto.
+
+export global Theme {
+    in-out property <bool> dark: false;
+
+    // testo e sfondo (gli stessi valori di sfondo e testo sono in src/gui/title_bar.rs)
+    out property <color> background: dark ? #0f1117 : #f5f6fa;
+    out property <color> foreground: dark ? #e7e9ee : #0f172a;
+    out property <color> muted: dark ? #8b93a7 : #64748b;
+
+    // colori di significato
+    out property <color> accent: dark ? #818cf8 : #4f46e5;
+    out property <color> secondary: dark ? #22d3ee : #0891b2;
+    out property <color> success: dark ? #34d399 : #059669;
+    out property <color> warning: dark ? #fbbf24 : #d97706;
+    out property <color> error: dark ? #fb7185 : #e11d48;
+
+    // gradienti (banner e pulsante principale)
+    out property <color> hero-start: dark ? #3730a3 : #4338ca;
+    out property <color> hero-middle: dark ? #5b21b6 : #6d28d9;
+    out property <color> hero-end: dark ? #86198f : #a21caf;
+    out property <color> gradient-start: dark ? #6366f1 : #4f46e5;
+    out property <color> gradient-end: dark ? #8b5cf6 : #7c3aed;
+    out property <color> disabled-fill: dark ? #232733 : #e7e9f0;
+
+    // superfici
+    out property <color> card: dark ? #171a22 : #ffffff;
+    out property <color> card-border: dark ? #262b37 : #e5e7ef;
+    out property <color> dash: dark ? #3a4050 : #c7cbd6;
+    out property <color> well: dark ? #12141b : #f3f4f8;
+    out property <color> hover: dark ? #ffffff0f : #0f172a0a;
+    out property <color> pressed: dark ? #ffffff1c : #0f172a14;
+    out property <color> shadow: dark ? #00000080 : #1e1b4b14;
+
+    // misure e tempi
+    out property <length> radius-small: 8px;
+    out property <length> radius: 12px;
+    out property <length> radius-large: 16px;
+    out property <duration> fast: 120ms;
+    out property <duration> normal: 220ms;
+
+    out property <string> mono-font: "Consolas";
+}
+
+// Colori della console: fissi, la console è scura in entrambi i temi.
+export global ConsoleColors {
+    out property <color> background: #0d1017;
+    out property <color> text: #e5e7eb;
+    out property <color> detail: #9ca3af;
+    out property <color> time: #5b6475;
+    out property <color> section: #a5b4fc;
+    out property <color> success: #6ee7b7;
+    out property <color> warning: #fcd34d;
+    out property <color> error: #fda4af;
+    out property <color> hover: #ffffff0a;
+    out property <color> match: #4a3b0f;
+    out property <color> current-match: #a16207;
+}

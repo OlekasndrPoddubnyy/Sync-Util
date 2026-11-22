@@ -1,0 +1,75 @@
+import { Theme } from "../theme.slint";
+
+// Pallino colorato dello stato; pulsa mentre la sincronizzazione è in corso.
+export component StatusDot inherits Rectangle {
+    in property <color> tint;
+    in property <bool> pulsing;
+
+    width: 10px;
+    height: 10px;
+    border-radius: 5px;
+    background: root.tint;
+    animate background { duration: Theme.normal; }
+
+    if root.pulsing: Rectangle {
+        property <float> phase: mod(animation-tick() / 1ms, 1400) / 1400;
+        width: 10px + 12px * self.phase;
+        height: self.width;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        border-radius: self.width / 2;
+        background: root.tint;
+        opacity: 0.45 * (1 - self.phase);
+    }
+}
+
+// Barra di avanzamento indeterminata: un segmento a gradiente che scorre.
+export component ActivityBar inherits Rectangle {
+    width: 140px;
+    height: 4px;
+    border-radius: 2px;
+    background: Theme.card-border;
+    clip: true;
+
+    Rectangle {
+        property <float> phase: mod(animation-tick() / 1ms, 1300) / 1300;
+        width: parent.width * 0.4;
+        height: parent.height;
+        x: -self.width + (parent.width + self.width) * self.phase;
+        border-radius: 2px;
+        background: @linear-gradient(90deg, Theme.gradient-start 0%, Theme.gradient-end 100%);
+    }
+}
+
+// Stato in una "pillola" tinta del colore dello stato: pallino (che pulsa durante la sincronizzazione) e testo.
+export component StatusChip inherits Rectangle {
+    in property <string> text;
+    in property <color> tint;
+    in property <bool> pulsing;
+
+    min-height: 34px;
+    border-radius: 17px;
+    background: root.tint.with-alpha(0.12);
+    border-width: 1px;
+    border-color: root.tint.with-alpha(0.28);
+    animate background, border-color { duration: Theme.normal; }
+
+    HorizontalLayout {
+        padding-left: 13px;
+        padding-right: 15px;
+        spacing: 9px;
+        VerticalLayout {
+            alignment: center;
+            StatusDot {
+                tint: root.tint;
+                pulsing: root.pulsing;
+            }
+        }
+        Text {
+            text: root.text;
+            color: Theme.foreground;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+}

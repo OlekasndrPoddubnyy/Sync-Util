@@ -1,0 +1,62 @@
+import { Theme } from "../theme.slint";
+
+// Scheda della card principale. La sottolineatura è disegnata da TabBar, che la fa scorrere tra le schede.
+export component TabButton inherits Rectangle {
+    in property <image> icon;
+    in property <string> text;
+    in property <bool> selected;
+    callback clicked;
+
+    min-height: 44px;
+    border-radius: Theme.radius-small;
+
+    Rectangle {
+        y: 4px;
+        height: parent.height - 10px;
+        border-radius: Theme.radius-small;
+        background: touch.has-hover && !root.selected ? Theme.hover : transparent;
+        animate background { duration: Theme.fast; }
+    }
+
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        padding-bottom: 2px;
+        spacing: 7px;
+        Image {
+            source: root.icon;
+            colorize: root.selected ? Theme.accent : Theme.muted;
+            width: 16px;
+            image-fit: contain;
+            animate colorize { duration: Theme.fast; }
+        }
+        Text {
+            text: root.text;
+            font-size: 15px;
+            font-weight: root.selected ? 600 : 400;
+            color: root.selected || touch.has-hover ? Theme.foreground : Theme.muted;
+            vertical-alignment: center;
+            animate color { duration: Theme.fast; }
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+// Sottolineatura della scheda selezionata: si sposta con un'animazione verso la nuova posizione.
+export component TabIndicator inherits Rectangle {
+    in property <length> target-x;
+    in property <length> target-width;
+
+    height: 3px;
+    border-radius: 1.5px;
+    background: @linear-gradient(90deg, Theme.gradient-start 0%, Theme.gradient-end 100%);
+    x: root.target-x + 8px;
+    width: root.target-width - 16px;
+    animate x, width { duration: Theme.normal; easing: ease-out; }
+}

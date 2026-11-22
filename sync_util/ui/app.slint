@@ -1,0 +1,517 @@
+import { Palette } from "std-widgets.slint";
+import { Theme } from "theme.slint";
+import { LogRow, TreeRow } from "models.slint";
+import { ToolButton, PrimaryButton, SecondaryButton } from "components/buttons.slint";
+import { Card } from "components/card.slint";
+import { Hero } from "components/hero.slint";
+import { DropZone } from "components/drop_zone.slint";
+import { StatTile } from "components/stat_tile.slint";
+import { TabButton, TabIndicator } from "components/tabs.slint";
+import { StatusChip, ActivityBar } from "components/status.slint";
+import { SearchField } from "components/search_field.slint";
+import { LogPanel } from "panels/log_panel.slint";
+import { FilesPanel } from "panels/files_panel.slint";
+import { ExclusionsPanel } from "panels/exclusions_panel.slint";
+
+export { Theme, LogRow, TreeRow }
+
+export component AppWindow inherits Window {
+    title: "Dimensions Sync Tool";
+    icon: @image-url("icons/app.svg");
+    min-width: 900px;
+    min-height: 720px;
+    preferred-width: 1080px;
+    preferred-height: 820px;
+    background: Theme.background;
+    default-font-family: "Segoe UI";
+    default-font-size: 14px;
+    animate background { duration: Theme.normal; }
+
+    /* ======= Cartelle e stato ======= */
+    in property <string> source-path;
+    in property <string> target-path;
+    in property <bool> running;
+    in property <bool> can-start;
+    in property <string> status-text;
+    in property <int> status-kind; // 0 inattivo, 1 in corso, 2 completato, 3 avviso, 4 errore
+    in property <int> drag-zone; // 0 nessuna, 1 sorgente, 2 destinazione
+
+    /* ======= Statistiche ======= */
+    in property <string> copied-value: "–";
+    in property <string> deleted-value: "–";
+    in property <string> identical-value: "–";
+    in property <string> denied-value: "–";
+
+    /* ======= Schede ======= */
+    in-out property <int> current-tab: 0;
+    in property <[LogRow]> log-rows;
+    in-out property <string> log-query;
+    in property <string> match-info;
+    in property <[string]> category-labels;
+    in property <int> selected-category;
+    in property <[TreeRow]> tree-rows;
+    in property <string> files-empty-text;
+    in-out property <string> rules-text;
+    in property <string> rules-status;
+    in property <int> rules-status-kind;
+    in property <int> rules-count;
+
+    callback browse-source();
+    callback browse-target();
+    callback open-source();
+    callback open-target();
+    callback start();
+    callback close-requested();
+    callback toggle-theme();
+    callback copy-log();
+    callback clear-log();
+    callback search(string);
+    callback next-match();
+    callback previous-match();
+    callback select-category(int);
+    callback toggle-row(int);
+    callback expand-all();
+    callback collapse-all();
+    callback rules-edited(string);
+    callback restore-defaults();
+
+    public function set-dark(dark: bool) {
+        Theme.dark = dark;
+        Palette.color-scheme = dark ? ColorScheme.dark : ColorScheme.light;
+    }
+
+    // quale riquadro si trova sotto il punto (coordinate della finestra): 1 sorgente, 2 destinazione
+    public function zone-at(x: length, y: length) -> int {
+        if (x >= source-zone.absolute-position.x && x <= source-zone.absolute-position.x + source-zone.width
+            && y >= source-zone.absolute-position.y && y <= source-zone.absolute-position.y + source-zone.height) {
+            return 1;
+        }
+        if (x >= target-zone.absolute-position.x && x <= target-zone.absolute-position.x + target-zone.width
+            && y >= target-zone.absolute-position.y && y <= target-zone.absolute-position.y + target-zone.height) {
+            return 2;
+        }
+        return 0;
+    }
+
+    public function log-at-bottom() -> bool {
+        return log-panel.at-bottom();
+    }
+
+    public function log-scroll-to-end() {
+        log-panel.scroll-to-end();
+    }
+
+    public function log-scroll-to(index: int) {
+        log-panel.scroll-to(index);
+    }
+
+    function show-category(index: int) {
+        root.current-tab = 1;
+        root.select-category(index);
+    }
+
+    function focus-search() {
+        root.current-tab = 0;
+        shortcuts.search-requested = true;
+        shortcuts.focus-request += 1;
+    }
+
+    pure function status-color(kind: int) -> color {
+        if (kind == 1) { return Theme.accent; }
+        if (kind == 2) { return Theme.success; }
+        if (kind == 3) { return Theme.warning; }
+        if (kind == 4) { return Theme.error; }
+        return Theme.muted;
+    }
+
+    // scorciatoie valide in tutta la finestra: Ctrl+F cerca nel log, F3 / Maiusc+F3 scorrono le occorrenze
+    shortcuts := FocusScope {
+        in-out property <bool> search-requested;
+        in-out property <int> focus-request;
+        width: 100%;
+        height: 100%;
+
+        key-pressed(event) => {
+            if (event.modifiers.control && (event.text == "f" || event.text == "F")) {
+                root.focus-search();
+                return accept;
+            }
+            if (event.text == Key.F3) {
+                root.current-tab = 0;
+                if (event.modifiers.shift) {
+                    root.previous-match();
+                } else {
+                    root.next-match();
+                }
+                return accept;
+            }
+            return reject;
+        }
+
+        VerticalLayout {
+            padding-left: 22px;
+            padding-right: 22px;
+            padding-top: 18px;
+            padding-bottom: 22px;
+            spacing: 16px;
+
+            Hero {
+                toggle-theme => {
+                    root.toggle-theme();
+                }
+            }
+
+            /* ---------- Sorgente → destinazione ---------- */
+            HorizontalLayout {
+                spacing: 12px;
+                source-zone := DropZone {
+                    horizontal-stretch: 1;
+                    title: "Sorgente";
+                    hint: "Cartella da cui copiare i file";
+                    tint: Theme.accent;
+                    path: root.source-path;
+                    locked: root.running;
+                    drag-over: root.drag-zone == 1;
+                    browse => {
+                        root.browse-source();
+                    }
+                    open => {
+                        root.open-source();
+                    }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    Rectangle {
+                        width: 40px;
+                        height: 40px;
+                        border-radius: 20px;
+                        background: @linear-gradient(90deg, Theme.accent 0%, Theme.secondary 100%);
+                        drop-shadow-color: Theme.accent.with-alpha(0.35);
+                        drop-shadow-blur: 12px;
+                        drop-shadow-offset-y: 3px;
+                        Image {
+                            source: @image-url("icons/arrow-right.svg");
+                            colorize: #ffffff;
+                            width: 18px;
+                            height: 18px;
+                        }
+                    }
+                }
+                target-zone := DropZone {
+                    horizontal-stretch: 1;
+                    title: "Destinazione";
+                    hint: "I file assenti nella sorgente saranno eliminati";
+                    tint: Theme.secondary;
+                    path: root.target-path;
+                    locked: root.running;
+                    drag-over: root.drag-zone == 2;
+                    browse => {
+                        root.browse-target();
+                    }
+                    open => {
+                        root.open-target();
+                    }
+                }
+            }
+
+            /* ---------- Barra azioni: stato a sinistra, pulsanti a destra ---------- */
+            HorizontalLayout {
+                spacing: 10px;
+                HorizontalLayout {
+                    horizontal-stretch: 1;
+                    spacing: 12px;
+                    VerticalLayout {
+                        alignment: center;
+                        StatusChip {
+                            text: root.status-text;
+                            tint: root.status-color(root.status-kind);
+                            pulsing: root.running;
+                        }
+                    }
+                    if root.running: VerticalLayout {
+                        alignment: center;
+                        ActivityBar { }
+                    }
+                    Rectangle {
+                        horizontal-stretch: 1;
+                    }
+                }
+                SecondaryButton {
+                    text: "Chiudi";
+                    clicked => {
+                        root.close-requested();
+                    }
+                }
+                PrimaryButton {
+                    icon: @image-url("icons/play.svg");
+                    text: "Avvia sincronizzazione";
+                    enabled: root.can-start && !root.running;
+                    clicked => {
+                        root.start();
+                    }
+                }
+            }
+
+            /* ---------- Riquadri statistici: aprono l'alberatura della categoria ---------- */
+            HorizontalLayout {
+                spacing: 12px;
+                StatTile {
+                    horizontal-stretch: 1;
+                    icon: @image-url("icons/copy.svg");
+                    value: root.copied-value;
+                    label: "File copiati";
+                    tooltip: "Mostra i file copiati";
+                    tint: Theme.accent;
+                    clicked => {
+                        root.show-category(0);
+                    }
+                }
+                StatTile {
+                    horizontal-stretch: 1;
+                    icon: @image-url("icons/trash.svg");
+                    value: root.deleted-value;
+                    label: "Eliminati";
+                    tooltip: "Mostra i file eliminati";
+                    tint: Theme.error;
+                    clicked => {
+                        root.show-category(1);
+                    }
+                }
+                StatTile {
+                    horizontal-stretch: 1;
+                    icon: @image-url("icons/check-circle.svg");
+                    value: root.identical-value;
+                    label: "Invariati";
+                    tooltip: "Mostra i file invariati";
+                    tint: Theme.success;
+                    clicked => {
+                        root.show-category(2);
+                    }
+                }
+                StatTile {
+                    horizontal-stretch: 1;
+                    icon: @image-url("icons/lock.svg");
+                    value: root.denied-value;
+                    label: "Accesso negato";
+                    tooltip: "Mostra i file con accesso negato";
+                    tint: Theme.warning;
+                    clicked => {
+                        root.show-category(3);
+                    }
+                }
+            }
+
+            /* ---------- Card a schede: attività, file ed esclusioni ---------- */
+            Card {
+                vertical-stretch: 1;
+                VerticalLayout {
+                    padding-left: 18px;
+                    padding-right: 18px;
+                    padding-top: 6px;
+                    padding-bottom: 18px;
+                    spacing: 14px;
+
+                    tab-bar := Rectangle {
+                        min-height: 46px;
+
+                        // linea di base sotto le schede, su cui scorre l'indicatore
+                        Rectangle {
+                            y: parent.height - 1px;
+                            height: 1px;
+                            background: Theme.card-border;
+                        }
+
+                        HorizontalLayout {
+                            spacing: 4px;
+                            tab-log := TabButton {
+                                icon: @image-url("icons/terminal.svg");
+                                text: "Attività";
+                                selected: root.current-tab == 0;
+                                clicked => {
+                                    root.current-tab = 0;
+                                }
+                            }
+                            tab-files := TabButton {
+                                icon: @image-url("icons/folder.svg");
+                                text: "File";
+                                selected: root.current-tab == 1;
+                                clicked => {
+                                    root.current-tab = 1;
+                                }
+                            }
+                            tab-rules := TabButton {
+                                icon: @image-url("icons/ban.svg");
+                                text: "Esclusioni (" + root.rules-count + ")";
+                                selected: root.current-tab == 2;
+                                clicked => {
+                                    root.current-tab = 2;
+                                }
+                            }
+                            Rectangle {
+                                horizontal-stretch: 1;
+                            }
+
+                            if root.current-tab == 0: HorizontalLayout {
+                                // Ctrl+F: la scheda può essere già aperta (changed) o appena creata (init)
+                                property <int> focus-request: shortcuts.focus-request;
+                                changed focus-request => {
+                                    shortcuts.search-requested = false;
+                                    search.focus();
+                                }
+                                init => {
+                                    if (shortcuts.search-requested) {
+                                        shortcuts.search-requested = false;
+                                        search.focus();
+                                    }
+                                }
+                                spacing: 4px;
+                                alignment: end;
+                                padding-bottom: 4px;
+                                search := SearchField {
+                                    width: 240px;
+                                    placeholder: "Cerca nel log (Ctrl+F)";
+                                    text <=> root.log-query;
+                                    edited(value) => {
+                                        root.search(value);
+                                    }
+                                    accepted => {
+                                        root.next-match();
+                                    }
+                                }
+                                if root.match-info != "": Text {
+                                    text: root.match-info;
+                                    color: Theme.muted;
+                                    vertical-alignment: center;
+                                }
+                                ToolButton {
+                                    icon: @image-url("icons/chevron-up.svg");
+                                    tooltip: "Occorrenza precedente (Maiusc+F3)";
+                                    enabled: root.log-query != "";
+                                    clicked => {
+                                        root.previous-match();
+                                    }
+                                }
+                                ToolButton {
+                                    icon: @image-url("icons/chevron-down.svg");
+                                    tooltip: "Occorrenza successiva (Invio, F3)";
+                                    enabled: root.log-query != "";
+                                    clicked => {
+                                        root.next-match();
+                                    }
+                                }
+                                ToolButton {
+                                    icon: @image-url("icons/copy.svg");
+                                    text: "Copia";
+                                    tooltip: "Copia tutto il log negli appunti";
+                                    icon-size: 15px;
+                                    clicked => {
+                                        root.copy-log();
+                                    }
+                                }
+                                ToolButton {
+                                    icon: @image-url("icons/trash.svg");
+                                    text: "Pulisci";
+                                    icon-size: 15px;
+                                    clicked => {
+                                        root.clear-log();
+                                    }
+                                }
+                            }
+
+                            if root.current-tab == 1: HorizontalLayout {
+                                spacing: 2px;
+                                alignment: end;
+                                padding-bottom: 4px;
+                                ToolButton {
+                                    icon: @image-url("icons/chevron-down.svg");
+                                    text: "Espandi tutto";
+                                    icon-size: 15px;
+                                    clicked => {
+                                        root.expand-all();
+                                    }
+                                }
+                                ToolButton {
+                                    icon: @image-url("icons/chevron-up.svg");
+                                    text: "Comprimi tutto";
+                                    icon-size: 15px;
+                                    clicked => {
+                                        root.collapse-all();
+                                    }
+                                }
+                            }
+
+                            if root.current-tab == 2: HorizontalLayout {
+                                spacing: 12px;
+                                alignment: end;
+                                padding-bottom: 4px;
+                                Text {
+                                    text: "Gli elementi esclusi non vengono copiati né eliminati dalla destinazione";
+                                    color: Theme.muted;
+                                    vertical-alignment: center;
+                                    overflow: elide;
+                                }
+                                ToolButton {
+                                    icon: @image-url("icons/reset.svg");
+                                    text: "Ripristina predefinite";
+                                    icon-size: 15px;
+                                    enabled: !root.running;
+                                    clicked => {
+                                        root.restore-defaults();
+                                    }
+                                }
+                            }
+                        }
+
+                        TabIndicator {
+                            y: parent.height - 3px;
+                            target-x: root.current-tab == 0 ? tab-log.x : root.current-tab == 1 ? tab-files.x : tab-rules.x;
+                            target-width: root.current-tab == 0 ? tab-log.width : root.current-tab == 1 ? tab-files.width : tab-rules.width;
+                        }
+                    }
+
+                    // le tre schede restano create: nascoste, conservano scorrimento e contenuto
+                    Rectangle {
+                        vertical-stretch: 1;
+                        log-panel := LogPanel {
+                            width: parent.width;
+                            height: parent.height;
+                            visible: root.current-tab == 0;
+                            rows: root.log-rows;
+                        }
+                        FilesPanel {
+                            width: parent.width;
+                            height: parent.height;
+                            visible: root.current-tab == 1;
+                            category-labels: root.category-labels;
+                            selected-category: root.selected-category;
+                            rows: root.tree-rows;
+                            empty-text: root.files-empty-text;
+                            select-category(index) => {
+                                root.select-category(index);
+                            }
+                            toggle-row(index) => {
+                                root.toggle-row(index);
+                            }
+                        }
+                        ExclusionsPanel {
+                            width: parent.width;
+                            height: parent.height;
+                            visible: root.current-tab == 2;
+                            text <=> root.rules-text;
+                            locked: root.running;
+                            status: root.rules-status;
+                            status-kind: root.rules-status-kind;
+                            edited(value) => {
+                                root.rules-edited(value);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    init => {
+        shortcuts.focus();
+    }
+}

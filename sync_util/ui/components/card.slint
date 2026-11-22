@@ -1,0 +1,36 @@
+import { Theme } from "../theme.slint";
+
+// Superficie in rilievo con bordo sottile e ombra morbida.
+export component Card inherits Rectangle {
+    background: Theme.card;
+    border-radius: Theme.radius-large;
+    border-width: 1px;
+    border-color: Theme.card-border;
+    drop-shadow-color: Theme.shadow;
+    drop-shadow-blur: 14px;
+    drop-shadow-offset-y: 2px;
+    animate background, border-color { duration: Theme.normal; }
+}
+
+// Icona su sfondo colorato tenue (o pieno, se solid).
+export component IconBadge inherits Rectangle {
+    in property <image> icon;
+    in property <color> tint;
+    in property <length> size: 40px;
+    in property <bool> solid: false;
+    in property <bool> circle: false;
+
+    width: root.size;
+    height: root.size;
+    border-radius: root.circle ? root.size / 2 : root.size * 0.3;
+    background: root.solid ? root.tint : root.tint.with-alpha(0.14);
+    animate background { duration: Theme.normal; }
+
+    Image {
+        source: root.icon;
+        colorize: root.solid ? #ffffff : root.tint;
+        width: root.size * 0.48;
+        height: root.size * 0.48;
+        image-fit: contain;
+    }
+}

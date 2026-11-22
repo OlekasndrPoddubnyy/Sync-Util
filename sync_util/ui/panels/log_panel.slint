@@ -1,0 +1,149 @@
+import { ListView } from "std-widgets.slint";
+import { Theme, ConsoleColors } from "../theme.slint";
+import { LogRow } from "../models.slint";
+
+// Console di log in stile terminale. Le righe sono virtualizzate: restano fluide anche a centinaia di migliaia.
+// Sezioni, successi, avvisi ed errori hanno una banda colorata a sinistra per trovarli a colpo d'occhio.
+export component LogPanel inherits Rectangle {
+    in property <[LogRow]> rows;
+    property <length> row-height: 22px;
+
+    background: ConsoleColors.background;
+    border-radius: Theme.radius;
+    clip: true;
+
+    pure function kind-color(kind: int) -> color {
+        if (kind == 1) { return ConsoleColors.detail; }
+        if (kind == 2) { return ConsoleColors.section; }
+        if (kind == 3) { return ConsoleColors.success; }
+        if (kind == 4) { return ConsoleColors.warning; }
+        if (kind == 5) { return ConsoleColors.error; }
+        return ConsoleColors.text;
+    }
+
+    list := ListView {
+        x: 4px;
+        y: 8px;
+        width: parent.width - 8px;
+        height: parent.height - 16px;
+        for row in root.rows: Rectangle {
+            height: root.row-height;
+            background: row.mark == 2 ? ConsoleColors.current-match
+                : row.mark == 1 ? ConsoleColors.match
+                : touch.has-hover ? ConsoleColors.hover : transparent;
+
+            Rectangle {
+                x: 2px;
+                y: 3px;
+                width: 3px;
+                height: parent.height - 6px;
+                border-radius: 1.5px;
+                background: row.kind >= 2 ? root.kind-color(row.kind) : transparent;
+            }
+
+            HorizontalLayout {
+                padding-left: 14px;
+                padding-right: 10px;
+                spacing: 12px;
+                Text {
+                    text: row.time;
+                    color: ConsoleColors.time;
+                    font-family: Theme.mono-font;
+                    vertical-alignment: center;
+                }
+                Text {
+                    text: row.text;
+                    color: root.kind-color(row.kind);
+                    font-family: Theme.mono-font;
+                    font-weight: row.kind == 2 || row.kind == 3 ? 700 : 400;
+                    vertical-alignment: center;
+                    overflow: elide;
+                    horizontal-stretch: 1;
+                }
+            }
+
+            touch := TouchArea { }
+        }
+    }
+
+    if root.rows.length == 0: VerticalLayout {
+        alignment: center;
+        spacing: 10px;
+        HorizontalLayout {
+            alignment: center;
+            Rectangle {
+                width: 64px;
+                height: 64px;
+                border-radius: 18px;
+                background: #ffffff0a;
+                border-width: 1px;
+                border-color: #ffffff12;
+                Image {
+                    source: @image-url("../icons/terminal.svg");
+                    colorize: ConsoleColors.detail;
+                    width: 30px;
+                    height: 30px;
+                }
+            }
+        }
+        Text {
+            text: "Nessuna attività";
+            color: ConsoleColors.text;
+            font-size: 16px;
+            font-weight: 600;
+            horizontal-alignment: center;
+        }
+        Text {
+            text: "Seleziona le cartelle e avvia la sincronizzazione: qui vedrai ogni operazione";
+            color: ConsoleColors.time;
+            horizontal-alignment: center;
+        }
+    }
+
+    property <bool> at-end: list.content-y <= list.visible-height - list.content-height + root.row-height;
+
+    // pulsante per tornare in fondo, visibile solo dopo aver scorso verso l'alto
+    if root.rows.length > 0 && !root.at-end: Rectangle {
+        x: parent.width - self.width - 22px;
+        y: parent.height - self.height - 16px;
+        width: 38px;
+        height: 38px;
+        border-radius: 19px;
+        background: jump.has-hover ? #3a4250 : #262c36;
+        border-width: 1px;
+        border-color: #ffffff1f;
+        drop-shadow-color: #00000080;
+        drop-shadow-blur: 12px;
+        drop-shadow-offset-y: 3px;
+        animate background { duration: Theme.fast; }
+        Image {
+            source: @image-url("../icons/arrow-down.svg");
+            colorize: ConsoleColors.text;
+            width: 16px;
+            height: 16px;
+        }
+        jump := TouchArea {
+            mouse-cursor: pointer;
+            clicked => {
+                root.scroll-to-end();
+            }
+        }
+        Tooltip {
+            text: @markdown("Vai alle ultime righe");
+        }
+    }
+
+    public function at-bottom() -> bool {
+        return root.at-end;
+    }
+
+    public function scroll-to-end() {
+        list.content-y = min(0px, list.visible-height - list.content-height);
+    }
+
+    // porta la riga al centro della console
+    public function scroll-to(index: int) {
+        list.content-y = max(min(0px, list.visible-height - list.content-height),
+            min(0px, list.visible-height / 2 - (index + 0.5) * root.row-height));
+    }
+}

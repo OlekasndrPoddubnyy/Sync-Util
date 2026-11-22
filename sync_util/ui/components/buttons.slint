@@ -1,0 +1,145 @@
+import { Theme } from "../theme.slint";
+
+// Pulsante piatto con icona ed eventuale testo, evidenziato al passaggio del mouse.
+export component ToolButton inherits Rectangle {
+    in property <image> icon;
+    in property <string> text;
+    in property <string> tooltip;
+    in property <bool> enabled: true;
+    in property <bool> selected: false;
+    in property <color> tint: Theme.foreground;
+    in property <color> hover-color: Theme.hover;
+    in property <color> pressed-color: Theme.pressed;
+    in property <length> icon-size: 16px;
+    callback clicked;
+
+    min-height: 32px;
+    border-radius: Theme.radius-small;
+    background: !root.enabled ? transparent
+        : touch.pressed || root.selected ? root.pressed-color
+        : touch.has-hover ? root.hover-color : transparent;
+    opacity: root.enabled ? 1 : 0.4;
+    animate background, opacity { duration: Theme.fast; }
+
+    HorizontalLayout {
+        padding-left: root.text == "" ? 8px : 10px;
+        padding-right: root.text == "" ? 8px : 12px;
+        spacing: 6px;
+        alignment: center;
+        Image {
+            source: root.icon;
+            colorize: root.tint;
+            width: root.icon-size;
+            image-fit: contain;
+        }
+        if root.text != "": Text {
+            text: root.text;
+            color: root.tint;
+            vertical-alignment: center;
+        }
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    if root.tooltip != "": Tooltip {
+        text: @markdown("\{root.tooltip}");
+    }
+}
+
+// Pulsante principale a gradiente, con un'ombra colorata che si accentua al passaggio del mouse.
+export component PrimaryButton inherits Rectangle {
+    in property <image> icon;
+    in property <string> text;
+    in property <bool> enabled: true;
+    callback clicked;
+
+    min-height: 42px;
+    border-radius: 11px;
+    background: root.enabled ? @linear-gradient(90deg, Theme.gradient-start 0%, Theme.gradient-end 100%) : Theme.disabled-fill;
+    drop-shadow-color: root.enabled ? Theme.gradient-end.with-alpha(touch.has-hover ? 0.45 : 0.28) : transparent;
+    drop-shadow-blur: touch.has-hover ? 18px : 10px;
+    drop-shadow-offset-y: touch.has-hover ? 5px : 3px;
+    animate drop-shadow-blur, drop-shadow-offset-y, drop-shadow-color { duration: Theme.normal; }
+
+    Rectangle {
+        border-radius: parent.border-radius;
+        background: !root.enabled ? transparent : touch.pressed ? #00000026 : touch.has-hover ? #ffffff1f : transparent;
+        animate background { duration: Theme.fast; }
+    }
+
+    HorizontalLayout {
+        padding-left: 20px;
+        padding-right: 22px;
+        spacing: 9px;
+        alignment: center;
+        Image {
+            source: root.icon;
+            colorize: root.enabled ? #ffffff : Theme.muted;
+            width: 15px;
+            image-fit: contain;
+        }
+        Text {
+            text: root.text;
+            color: root.enabled ? #ffffff : Theme.muted;
+            font-weight: 600;
+            vertical-alignment: center;
+        }
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? pointer : default;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+// Pulsante secondario con bordo e icona facoltativa; in una riga prende l'altezza del pulsante principale.
+export component SecondaryButton inherits Rectangle {
+    in property <string> text;
+    in property <image> icon;
+    in property <bool> has-icon: false;
+    in property <bool> enabled: true;
+    callback clicked;
+
+    min-height: 36px;
+    border-radius: 10px;
+    border-width: 1px;
+    border-color: root.enabled && touch.has-hover ? Theme.dash : Theme.card-border;
+    background: !root.enabled ? Theme.card : touch.pressed ? Theme.pressed : touch.has-hover ? Theme.hover : Theme.card;
+    opacity: root.enabled ? 1 : 0.5;
+    animate background, border-color, opacity { duration: Theme.fast; }
+
+    HorizontalLayout {
+        padding-left: root.has-icon ? 12px : 18px;
+        padding-right: 16px;
+        spacing: 7px;
+        alignment: center;
+        if root.has-icon: Image {
+            source: root.icon;
+            colorize: Theme.foreground;
+            width: 15px;
+            image-fit: contain;
+        }
+        Text {
+            text: root.text;
+            color: Theme.foreground;
+            vertical-alignment: center;
+        }
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? pointer : default;
+        clicked => {
+            root.clicked();
+        }
+    }
+}

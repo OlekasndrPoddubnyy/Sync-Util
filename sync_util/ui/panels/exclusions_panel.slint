@@ -1,0 +1,110 @@
+import { TextEdit, ScrollView } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+
+// Editor delle regole di esclusione, con promemoria della sintassi.
+export component ExclusionsPanel inherits HorizontalLayout {
+    in-out property <string> text;
+    in property <bool> locked;
+    in property <string> status;
+    in property <int> status-kind; // 0 normale, 1 avviso, 2 errore
+    callback edited(string);
+
+    property <[{code: string, description: string}]> syntax: [
+        { code: "nome", description: "file o cartella, a qualsiasi livello" },
+        { code: "cartella/", description: "solo cartelle" },
+        { code: "/percorso", description: "relativo alla radice" },
+        { code: "*.log", description: "* qualsiasi testo, ? un carattere" },
+        { code: "**/temp", description: "a qualsiasi profondità" },
+        { code: "!nome", description: "re-include un elemento escluso" },
+    ];
+
+    spacing: 14px;
+
+    VerticalLayout {
+        spacing: 10px;
+        horizontal-stretch: 1;
+        TextEdit {
+            vertical-stretch: 1;
+            text <=> root.text;
+            read-only: root.locked;
+            font-family: Theme.mono-font;
+            wrap: no-wrap;
+            edited(value) => {
+                root.edited(value);
+            }
+        }
+        HorizontalLayout {
+            spacing: 8px;
+            VerticalLayout {
+                alignment: center;
+                Rectangle {
+                    width: 8px;
+                    height: 8px;
+                    border-radius: 4px;
+                    background: root.status-kind == 2 ? Theme.error : root.status-kind == 1 ? Theme.warning : Theme.success;
+                }
+            }
+            Text {
+                text: root.status;
+                color: root.status-kind == 2 ? Theme.error : root.status-kind == 1 ? Theme.warning : Theme.muted;
+                overflow: elide;
+                horizontal-stretch: 1;
+            }
+        }
+    }
+
+    Rectangle {
+        width: 300px;
+        border-radius: Theme.radius;
+        background: Theme.well;
+        border-width: 1px;
+        border-color: Theme.card-border;
+        ScrollView {
+            VerticalLayout {
+                padding-left: 16px;
+                padding-right: 12px;
+                padding-top: 14px;
+                padding-bottom: 14px;
+                spacing: 8px;
+                alignment: start;
+                Text {
+                    text: "Sintassi .gitignore";
+                    font-weight: 700;
+                    font-size: 15px;
+                    color: Theme.foreground;
+                }
+                for item in root.syntax: HorizontalLayout {
+                    spacing: 12px;
+                    Rectangle {
+                        width: 92px;
+                        HorizontalLayout {
+                            alignment: start;
+                            Rectangle {
+                                border-radius: 6px;
+                                background: Theme.accent.with-alpha(0.12);
+                                HorizontalLayout {
+                                    padding-left: 7px;
+                                    padding-right: 7px;
+                                    padding-top: 2px;
+                                    padding-bottom: 2px;
+                                    Text {
+                                        text: item.code;
+                                        font-family: Theme.mono-font;
+                                        color: Theme.accent;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Text {
+                        horizontal-stretch: 1;
+                        text: item.description;
+                        color: Theme.muted;
+                        wrap: word-wrap;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,118 @@
+import { Theme } from "../theme.slint";
+import { ToolButton, SecondaryButton } from "buttons.slint";
+import { IconBadge } from "card.slint";
+
+// Riquadro sorgente/destinazione: titolo, percorso scelto, "Sfoglia" e apertura in Esplora risorse.
+// Durante un trascinamento sopra il riquadro, bordo e sfondo prendono il colore della zona.
+export component DropZone inherits Rectangle {
+    in property <string> title;
+    in property <string> hint;
+    in property <color> tint;
+    in property <string> path;
+    in property <bool> locked;
+    in property <bool> drag-over;
+    callback browse;
+    callback open;
+
+    property <bool> selected: root.path != "";
+
+    border-radius: Theme.radius-large;
+    background: Theme.card;
+    border-width: root.drag-over ? 2px : 1px;
+    border-color: root.drag-over ? root.tint : root.selected ? Theme.card-border : Theme.dash;
+    drop-shadow-color: root.drag-over ? root.tint.with-alpha(0.3) : Theme.shadow;
+    drop-shadow-blur: root.drag-over ? 22px : 14px;
+    drop-shadow-offset-y: 2px;
+    animate background, border-color, drop-shadow-color, drop-shadow-blur { duration: Theme.normal; }
+
+    Rectangle {
+        border-radius: parent.border-radius;
+        background: root.tint.with-alpha(root.drag-over ? 0.08 : 0);
+        animate background { duration: Theme.normal; }
+    }
+
+    VerticalLayout {
+        padding-left: 18px;
+        padding-right: 14px;
+        padding-top: 16px;
+        padding-bottom: 18px;
+        spacing: 16px;
+
+        HorizontalLayout {
+            spacing: 14px;
+            IconBadge {
+                icon: @image-url("../icons/folder.svg");
+                tint: root.tint;
+                size: 46px;
+                solid: root.selected || root.drag-over;
+            }
+            VerticalLayout {
+                alignment: center;
+                spacing: 2px;
+                Text {
+                    text: root.title;
+                    font-size: 17px;
+                    font-weight: 700;
+                    color: Theme.foreground;
+                }
+                Text {
+                    text: root.hint;
+                    color: Theme.muted;
+                    overflow: elide;
+                }
+            }
+            VerticalLayout {
+                alignment: start;
+                ToolButton {
+                    icon: @image-url("../icons/open-external.svg");
+                    tooltip: "Apri in Esplora risorse";
+                    enabled: root.selected;
+                    clicked => {
+                        root.open();
+                    }
+                }
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 8px;
+            well := Rectangle {
+                min-height: 36px;
+                horizontal-stretch: 1;
+                border-radius: 10px;
+                background: Theme.well;
+                border-width: 1px;
+                border-color: root.selected || root.drag-over ? transparent : Theme.dash.with-alpha(0.55);
+                clip: true;
+                animate background, border-color { duration: Theme.normal; }
+
+                path-text := Text {
+                    x: 12px;
+                    width: parent.width - 24px;
+                    text: root.drag-over ? "Rilascia qui la cartella" : root.selected ? root.path : "Trascina qui una cartella";
+                    color: root.drag-over ? root.tint : root.selected ? Theme.foreground : Theme.muted;
+                    font-weight: root.drag-over ? 600 : 400;
+                    vertical-alignment: center;
+                    // percorso lungo: resta visibile la parte finale (la cartella scelta)
+                    horizontal-alignment: self.preferred-width > self.width ? right : left;
+                }
+
+                // sfumatura a sinistra quando il percorso è tagliato
+                if path-text.preferred-width > path-text.width: Rectangle {
+                    x: 0;
+                    width: 36px;
+                    background: @linear-gradient(90deg, Theme.well 30%, Theme.well.with-alpha(0) 100%);
+                }
+            }
+            SecondaryButton {
+                text: "Sfoglia…";
+                icon: @image-url("../icons/folder-open.svg");
+                has-icon: true;
+                enabled: !root.locked;
+                clicked => {
+                    root.browse();
+                }
+            }
+        }
+    }
+}

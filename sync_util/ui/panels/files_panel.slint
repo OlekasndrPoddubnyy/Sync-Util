@@ -1,0 +1,177 @@
+import { ListView } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { TreeRow } from "../models.slint";
+
+// Pulsante di categoria a "pillola": colorato quando è selezionato.
+component CategoryChip inherits Rectangle {
+    in property <image> icon;
+    in property <string> text;
+    in property <color> tint;
+    in property <bool> selected;
+    callback clicked;
+
+    min-height: 32px;
+    border-radius: 16px;
+    background: root.selected ? root.tint.with-alpha(0.14) : touch.has-hover ? Theme.hover : transparent;
+    border-width: 1px;
+    border-color: root.selected ? root.tint.with-alpha(0.45) : Theme.card-border;
+    animate background, border-color { duration: Theme.fast; }
+
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 14px;
+        spacing: 7px;
+        Image {
+            source: root.icon;
+            colorize: root.selected ? root.tint : Theme.muted;
+            width: 15px;
+            image-fit: contain;
+        }
+        Text {
+            text: root.text;
+            color: root.selected ? root.tint : Theme.foreground;
+            font-weight: root.selected ? 600 : 400;
+            vertical-alignment: center;
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+// Alberatura dei file elaborati: righe già "appiattite" da Rust, con rientro per livello.
+export component FilesPanel inherits VerticalLayout {
+    in property <[string]> category-labels;
+    in property <int> selected-category;
+    in property <[TreeRow]> rows;
+    in property <string> empty-text;
+    callback select-category(int);
+    callback toggle-row(int);
+
+    property <[image]> icons: [
+        @image-url("../icons/copy.svg"),
+        @image-url("../icons/trash.svg"),
+        @image-url("../icons/check-circle.svg"),
+        @image-url("../icons/lock.svg"),
+        @image-url("../icons/ban.svg"),
+    ];
+    property <[color]> tints: [Theme.accent, Theme.error, Theme.success, Theme.warning, Theme.muted];
+
+    spacing: 12px;
+
+    HorizontalLayout {
+        spacing: 6px;
+        alignment: start;
+        for label[i] in root.category-labels: CategoryChip {
+            icon: root.icons[i];
+            text: label;
+            tint: root.tints[i];
+            selected: i == root.selected-category;
+            clicked => {
+                root.select-category(i);
+            }
+        }
+    }
+
+    Rectangle {
+        vertical-stretch: 1;
+        border-radius: Theme.radius;
+        border-width: 1px;
+        border-color: Theme.card-border;
+        background: Theme.well.with-alpha(0.5);
+        clip: true;
+
+        ListView {
+            visible: root.rows.length > 0;
+            for row[i] in root.rows: Rectangle {
+                height: 28px;
+                HorizontalLayout {
+                    padding-left: 10px + row.depth * 20px;
+                    padding-right: 12px;
+                    spacing: 7px;
+                    Rectangle {
+                        width: 16px;
+                        Image {
+                            width: 14px;
+                            height: 14px;
+                            source: @image-url("../icons/chevron-right.svg");
+                            colorize: row.expandable ? Theme.muted : transparent;
+                            transform-rotation: row.expanded ? 90deg : 0deg;
+                            animate transform-rotation { duration: Theme.fast; }
+                        }
+                    }
+                    Image {
+                        width: 16px;
+                        image-fit: contain;
+                        source: row.directory ? @image-url("../icons/folder.svg") : @image-url("../icons/file.svg");
+                        colorize: row.directory ? Theme.muted : root.tints[root.selected-category];
+                    }
+                    Text {
+                        text: row.name;
+                        color: Theme.foreground;
+                        font-weight: row.directory ? 600 : 400;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+                    HorizontalLayout {
+                        horizontal-stretch: 1;
+                        alignment: start;
+                        if row.detail != "": Rectangle {
+                            y: (parent.height - self.height) / 2;
+                            height: 20px;
+                            border-radius: 10px;
+                            background: Theme.hover;
+                            HorizontalLayout {
+                                padding-left: 8px;
+                                padding-right: 8px;
+                                Text {
+                                    text: row.detail;
+                                    color: Theme.muted;
+                                    font-size: 12px;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+                    }
+                }
+                Rectangle {
+                    x: 4px;
+                    width: parent.width - 8px;
+                    border-radius: 6px;
+                    background: touch.has-hover ? Theme.hover : transparent;
+                }
+                touch := TouchArea {
+                    mouse-cursor: row.expandable ? pointer : default;
+                    clicked => {
+                        if (row.expandable) {
+                            root.toggle-row(i);
+                        }
+                    }
+                }
+            }
+        }
+
+        if root.rows.length == 0: VerticalLayout {
+            alignment: center;
+            spacing: 10px;
+            HorizontalLayout {
+                alignment: center;
+                Image {
+                    source: root.icons[root.selected-category];
+                    colorize: Theme.dash;
+                    width: 34px;
+                    height: 34px;
+                }
+            }
+            Text {
+                text: root.empty-text;
+                color: Theme.muted;
+                horizontal-alignment: center;
+            }
+        }
+    }
+}

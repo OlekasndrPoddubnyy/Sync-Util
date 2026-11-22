@@ -1,0 +1,61 @@
+import { Theme } from "../theme.slint";
+import { IconBadge } from "card.slint";
+
+// Riquadro statistico cliccabile: icona, numero grande ed etichetta. Al passaggio del mouse si solleva.
+export component StatTile inherits Rectangle {
+    in property <image> icon;
+    in property <string> value;
+    in property <string> label;
+    in property <string> tooltip;
+    in property <color> tint;
+    callback clicked;
+
+    background: @linear-gradient(160deg, root.tint.with-alpha(Theme.dark ? 0.09 : 0.06) 0%, Theme.card 75%);
+    border-radius: 14px;
+    border-width: 1px;
+    border-color: touch.has-hover ? root.tint.with-alpha(0.5) : Theme.card-border;
+    drop-shadow-color: touch.has-hover ? root.tint.with-alpha(0.22) : Theme.shadow;
+    drop-shadow-blur: touch.has-hover ? 20px : 12px;
+    drop-shadow-offset-y: touch.has-hover ? 5px : 2px;
+    animate border-color, drop-shadow-color, drop-shadow-blur, drop-shadow-offset-y { duration: Theme.normal; }
+
+
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        padding-top: 14px;
+        padding-bottom: 14px;
+        spacing: 12px;
+        IconBadge {
+            icon: root.icon;
+            tint: root.tint;
+            size: 42px;
+            solid: touch.has-hover;
+        }
+        VerticalLayout {
+            alignment: center;
+            Text {
+                text: root.value;
+                font-size: 27px;
+                font-weight: 700;
+                color: Theme.foreground;
+            }
+            Text {
+                text: root.label;
+                color: Theme.muted;
+                overflow: elide;
+            }
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    if root.tooltip != "": Tooltip {
+        text: @markdown("\{root.tooltip}");
+    }
+}
